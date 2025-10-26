@@ -83,32 +83,56 @@ const Auth = () => {
     const formData = new FormData(e.currentTarget);
     const email = formData.get("admin-email") as string;
     const password = formData.get("admin-password") as string;
+    const name = formData.get("admin-name") as string;
 
     try {
-      const validation = authSchema.safeParse({ email, password });
+      const validation = authSchema.safeParse({ email, password, name });
       if (!validation.success) {
         toast.error(validation.error.errors[0].message);
         setLoading(false);
         return;
       }
 
-      const { error, data } = await supabase.auth.signInWithPassword({ email, password });
-      
-      if (error) {
-        toast.error(error.message);
-      } else if (data.user) {
-        // Check if user is admin
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", data.user.id)
-          .single();
+      if (adminTab === "signup") {
+        const redirectUrl = `${window.location.origin}/`;
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: redirectUrl,
+            data: { name, role: 'admin' }
+          }
+        });
 
-        if (profile?.role === "admin") {
-          navigate("/");
+        if (error) {
+          if (error.message.includes("already registered")) {
+            toast.error("Email already registered. Please login instead.");
+          } else {
+            toast.error(error.message);
+          }
         } else {
-          await supabase.auth.signOut();
-          toast.error("Access denied. Admin credentials required.");
+          toast.success("Admin account created! You can now login.");
+          setAdminTab("login");
+        }
+      } else {
+        const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+        
+        if (error) {
+          toast.error(error.message);
+        } else if (data.user) {
+          // Check if user is admin
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", data.user.id)
+            .single();
+
+          if (profile?.role === "admin") {
+            navigate("/");
+          } else {
+            await supabase.auth.signOut();
+            toast.error("Access denied. Admin credentials required.");
+          }
         }
       }
     } catch (error: any) {
@@ -183,28 +207,44 @@ const Auth = () => {
           <TabsContent value="admin">
             <Card>
               <CardHeader>
-                <CardTitle>Admin Access</CardTitle>
+                <CardTitle>{adminTab === "login" ? "Admin Access" : "Create Admin Account"}</CardTitle>
                 <CardDescription>
-                  Login with your admin credentials
+                  {adminTab === "login" 
+                    ? "Login with your admin credentials" 
+                    : "Sign up as an administrator"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleAdminAuth} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="admin-email">Email</Label>
-                    <Input id="admin-email" name="admin-email" type="email" placeholder="admin@arkv.com" required />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="admin-password">Password</Label>
-                    <Input id="admin-password" name="admin-password" type="password" placeholder="••••••••" required />
-                  </div>
+                <Tabs value={adminTab} onValueChange={(v) => setAdminTab(v as "login" | "signup")}>
+                  <TabsList className="grid w-full grid-cols-2 mb-4">
+                    <TabsTrigger value="login">Login</TabsTrigger>
+                    <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                  </TabsList>
 
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Admin Login
-                  </Button>
-                </form>
+                  <form onSubmit={handleAdminAuth} className="space-y-4">
+                    {adminTab === "signup" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="admin-name">Name</Label>
+                        <Input id="admin-name" name="admin-name" placeholder="Admin Name" required />
+                      </div>
+                    )}
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="admin-email">Email</Label>
+                      <Input id="admin-email" name="admin-email" type="email" placeholder="admin@arkv.com" required />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="admin-password">Password</Label>
+                      <Input id="admin-password" name="admin-password" type="password" placeholder="••••••••" required />
+                    </div>
+
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {adminTab === "login" ? "Admin Login" : "Create Admin Account"}
+                    </Button>
+                  </form>
+                </Tabs>
               </CardContent>
             </Card>
           </TabsContent>
