@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Search, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { StudentDetailsDialog, StudentDetails } from "@/components/StudentDetailsDialog";
 
 interface Book {
   id: string;
@@ -32,6 +33,9 @@ const Books = () => {
   const [categories, setCategories] = useState<string[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isLoadingBooks, setIsLoadingBooks] = useState(true);
+  const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
+  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
+  const [isSubmittingBorrow, setIsSubmittingBorrow] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -94,9 +98,17 @@ const Books = () => {
     setFilteredBooks(filtered);
   };
 
-  const handleBorrowBook = async (bookId: string) => {
-    if (!user) return;
+  const handleBorrowBook = (bookId: string) => {
+    setSelectedBookId(bookId);
+    setIsStudentDialogOpen(true);
+  };
 
+  const handleStudentDetailsSubmit = async (details: StudentDetails) => {
+    if (!user || !selectedBookId) return;
+
+    setIsSubmittingBorrow(true);
+
+    // Update book status
     const { error: bookError } = await supabase
       .from("books")
       .update({
@@ -104,29 +116,52 @@ const Books = () => {
         borrowed_by: user.id,
         expected_return_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
       })
-      .eq("id", bookId);
+      .eq("id", selectedBookId);
 
     if (bookError) {
       toast.error("Failed to borrow book");
+      setIsSubmittingBorrow(false);
       return;
     }
 
-    const book = books.find(b => b.id === bookId);
-    const { error: reservationError } = await supabase
+    // Create reservation
+    const book = books.find(b => b.id === selectedBookId);
+    const { data: reservationData, error: reservationError } = await supabase
       .from("reservations")
       .insert({
         user_id: user.id,
         type: "book",
-        item_id: bookId,
+        item_id: selectedBookId,
         item_title: book?.title || "Unknown",
         status: "active"
+      })
+      .select()
+      .single();
+
+    if (reservationError || !reservationData) {
+      toast.error("Failed to create reservation");
+      setIsSubmittingBorrow(false);
+      return;
+    }
+
+    // Save student details
+    const { error: studentError } = await supabase
+      .from("student_details")
+      .insert({
+        reservation_id: reservationData.id,
+        user_id: user.id,
+        ...details
       });
 
-    if (reservationError) {
-      toast.error("Failed to create reservation");
+    if (studentError) {
+      toast.error("Failed to save student details");
     } else {
       toast.success("Book borrowed successfully!");
+      setIsStudentDialogOpen(false);
+      setSelectedBookId(null);
     }
+
+    setIsSubmittingBorrow(false);
   };
 
   const handleUpdateBookStatus = async (bookId: string, available: boolean) => {
@@ -283,6 +318,13 @@ const Books = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      <StudentDetailsDialog
+        open={isStudentDialogOpen}
+        onOpenChange={setIsStudentDialogOpen}
+        onSubmit={handleStudentDetailsSubmit}
+        loading={isSubmittingBorrow}
+      />
     </div>
   );
 };

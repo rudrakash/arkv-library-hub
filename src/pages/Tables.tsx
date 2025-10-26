@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { StudentDetailsDialog, StudentDetails } from "@/components/StudentDetailsDialog";
 
 interface LibraryTable {
   id: string;
@@ -25,6 +26,9 @@ const Tables = () => {
   const [tables, setTables] = useState<LibraryTable[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isLoadingTables, setIsLoadingTables] = useState(true);
+  const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const [isSubmittingReservation, setIsSubmittingReservation] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -64,38 +68,69 @@ const Tables = () => {
     setIsLoadingTables(false);
   };
 
-  const handleReserveTable = async (tableId: string) => {
-    if (!user) return;
+  const handleReserveTable = (tableId: string) => {
+    setSelectedTableId(tableId);
+    setIsStudentDialogOpen(true);
+  };
 
+  const handleStudentDetailsSubmit = async (details: StudentDetails) => {
+    if (!user || !selectedTableId) return;
+
+    setIsSubmittingReservation(true);
+
+    // Update table status
     const { error: tableError } = await supabase
       .from("library_tables")
       .update({
         booked: true,
         booked_by: user.id
       })
-      .eq("id", tableId);
+      .eq("id", selectedTableId);
 
     if (tableError) {
       toast.error("Failed to reserve table");
+      setIsSubmittingReservation(false);
       return;
     }
 
-    const table = tables.find(t => t.id === tableId);
-    const { error: reservationError } = await supabase
+    // Create reservation
+    const table = tables.find(t => t.id === selectedTableId);
+    const { data: reservationData, error: reservationError } = await supabase
       .from("reservations")
       .insert({
         user_id: user.id,
         type: "table",
-        item_id: tableId,
+        item_id: selectedTableId,
         item_title: `Table ${table?.table_number}`,
         status: "active"
+      })
+      .select()
+      .single();
+
+    if (reservationError || !reservationData) {
+      toast.error("Failed to create reservation");
+      setIsSubmittingReservation(false);
+      return;
+    }
+
+    // Save student details
+    const { error: studentError } = await supabase
+      .from("student_details")
+      .insert({
+        reservation_id: reservationData.id,
+        user_id: user.id,
+        ...details
       });
 
-    if (reservationError) {
-      toast.error("Failed to create reservation");
+    if (studentError) {
+      toast.error("Failed to save student details");
     } else {
       toast.success("Table reserved successfully!");
+      setIsStudentDialogOpen(false);
+      setSelectedTableId(null);
     }
+
+    setIsSubmittingReservation(false);
   };
 
   const handleUpdateTableStatus = async (tableId: string, booked: boolean) => {
@@ -230,6 +265,13 @@ const Tables = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      <StudentDetailsDialog
+        open={isStudentDialogOpen}
+        onOpenChange={setIsStudentDialogOpen}
+        onSubmit={handleStudentDetailsSubmit}
+        loading={isSubmittingReservation}
+      />
     </div>
   );
 };

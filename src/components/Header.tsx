@@ -30,7 +30,40 @@ export const Header = () => {
               </Button>
             </Link>
             
-            {!isAdmin && (
+            {isAdmin ? (
+              <>
+                <Link to="/books">
+                  <Button
+                    variant={isActive("/books") ? "default" : "ghost"}
+                    size="sm"
+                    className="gap-2"
+                  >
+                    <BookMarked className="h-4 w-4" />
+                    Books
+                  </Button>
+                </Link>
+                <Link to="/tables">
+                  <Button
+                    variant={isActive("/tables") ? "default" : "ghost"}
+                    size="sm"
+                    className="gap-2"
+                  >
+                    <Table2 className="h-4 w-4" />
+                    Tables
+                  </Button>
+                </Link>
+                <Link to="/admin/reservations">
+                  <Button
+                    variant={isActive("/admin/reservations") ? "default" : "ghost"}
+                    size="sm"
+                    className="gap-2"
+                  >
+                    <Clock className="h-4 w-4" />
+                    All Reservations
+                  </Button>
+                </Link>
+              </>
+            ) : (
               <>
                 <Link to="/books">
                   <Button

@@ -161,6 +161,50 @@ export type Database = {
           },
         ]
       }
+      student_details: {
+        Row: {
+          class: string
+          created_at: string
+          id: string
+          registration_number: string
+          reservation_id: string
+          section: string
+          student_name: string
+          user_id: string
+          year: string
+        }
+        Insert: {
+          class: string
+          created_at?: string
+          id?: string
+          registration_number: string
+          reservation_id: string
+          section: string
+          student_name: string
+          user_id: string
+          year: string
+        }
+        Update: {
+          class?: string
+          created_at?: string
+          id?: string
+          registration_number?: string
+          reservation_id?: string
+          section?: string
+          student_name?: string
+          user_id?: string
+          year?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_details_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
