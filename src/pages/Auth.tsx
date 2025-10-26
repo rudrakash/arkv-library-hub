@@ -10,10 +10,13 @@ import { BookOpen, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-const authSchema = z.object({
+const loginSchema = z.object({
   email: z.string().trim().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  name: z.string().trim().min(2, "Name must be at least 2 characters").optional(),
+});
+
+const signupSchema = loginSchema.extend({
+  name: z.string().trim().min(2, "Name must be at least 2 characters"),
 });
 
 const Auth = () => {
@@ -32,14 +35,13 @@ const Auth = () => {
     const name = formData.get("name") as string;
 
     try {
-      const validation = authSchema.safeParse({ email, password, name });
-      if (!validation.success) {
-        toast.error(validation.error.errors[0].message);
-        setLoading(false);
-        return;
-      }
-
       if (userTab === "signup") {
+        const validation = signupSchema.safeParse({ email, password, name });
+        if (!validation.success) {
+          toast.error(validation.error.errors[0].message);
+          setLoading(false);
+          return;
+        }
         const redirectUrl = `${window.location.origin}/`;
         const { error } = await supabase.auth.signUp({
           email,
@@ -61,6 +63,13 @@ const Auth = () => {
           setUserTab("login");
         }
       } else {
+        const validation = loginSchema.safeParse({ email, password });
+        if (!validation.success) {
+          toast.error(validation.error.errors[0].message);
+          setLoading(false);
+          return;
+        }
+
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         
         if (error) {
@@ -86,14 +95,13 @@ const Auth = () => {
     const name = formData.get("admin-name") as string;
 
     try {
-      const validation = authSchema.safeParse({ email, password, name });
-      if (!validation.success) {
-        toast.error(validation.error.errors[0].message);
-        setLoading(false);
-        return;
-      }
-
       if (adminTab === "signup") {
+        const validation = signupSchema.safeParse({ email, password, name });
+        if (!validation.success) {
+          toast.error(validation.error.errors[0].message);
+          setLoading(false);
+          return;
+        }
         const redirectUrl = `${window.location.origin}/`;
         const { error } = await supabase.auth.signUp({
           email,
@@ -115,6 +123,13 @@ const Auth = () => {
           setAdminTab("login");
         }
       } else {
+        const validation = loginSchema.safeParse({ email, password });
+        if (!validation.success) {
+          toast.error(validation.error.errors[0].message);
+          setLoading(false);
+          return;
+        }
+
         const { error, data } = await supabase.auth.signInWithPassword({ email, password });
         
         if (error) {
