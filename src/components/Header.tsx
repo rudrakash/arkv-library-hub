@@ -52,6 +52,16 @@ export const Header = () => {
                     Tables
                   </Button>
                 </Link>
+                <Link to="/admin/approvals">
+                  <Button
+                    variant={isActive("/admin/approvals") ? "default" : "ghost"}
+                    size="sm"
+                    className="gap-2"
+                  >
+                    <Clock className="h-4 w-4" />
+                    Approvals
+                  </Button>
+                </Link>
                 <Link to="/admin/reservations">
                   <Button
                     variant={isActive("/admin/reservations") ? "default" : "ghost"}

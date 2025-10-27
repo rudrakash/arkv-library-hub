@@ -28,15 +28,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Defer profile check with setTimeout
+          // Check user role from user_roles table
           setTimeout(async () => {
-            const { data: profile } = await supabase
-              .from("profiles")
+            const { data: roles } = await supabase
+              .from("user_roles" as any)
               .select("role")
-              .eq("id", session.user.id)
-              .single();
+              .eq("user_id", session.user.id)
+              .eq("role", "admin")
+              .maybeSingle();
             
-            setIsAdmin(profile?.role === "admin");
+            setIsAdmin(!!roles);
           }, 0);
         } else {
           setIsAdmin(false);
@@ -53,13 +54,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (session?.user) {
         setTimeout(async () => {
-          const { data: profile } = await supabase
-            .from("profiles")
+          const { data: roles } = await supabase
+            .from("user_roles" as any)
             .select("role")
-            .eq("id", session.user.id)
-            .single();
+            .eq("user_id", session.user.id)
+            .eq("role", "admin")
+            .maybeSingle();
           
-          setIsAdmin(profile?.role === "admin");
+          setIsAdmin(!!roles);
         }, 0);
       }
       

@@ -68,7 +68,7 @@ const Reservations = () => {
       .from("reservations")
       .select("*")
       .eq("user_id", user.id)
-      .eq("status", "active")
+      .in("status", ["pending", "approved"])
       .order("timestamp", { ascending: false });
 
     if (error) {
@@ -161,7 +161,7 @@ const Reservations = () => {
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-2">My Reservations</h1>
           <p className="text-muted-foreground">
-            {reservations.length} active reservation{reservations.length !== 1 ? 's' : ''}
+            {reservations.length} reservation{reservations.length !== 1 ? 's' : ''}
           </p>
         </div>
 
@@ -194,9 +194,12 @@ const Reservations = () => {
                         )}
                         {reservation.item_title}
                       </CardTitle>
-                      <CardDescription className="mt-2">
+                      <CardDescription className="mt-2 flex gap-2">
                         <Badge variant="secondary" className="font-medium">
                           {reservation.type === "book" ? "Book" : "Table"}
+                        </Badge>
+                        <Badge variant={reservation.status === "approved" ? "default" : "outline"}>
+                          {reservation.status === "pending" ? "Pending Approval" : "Approved"}
                         </Badge>
                       </CardDescription>
                     </div>

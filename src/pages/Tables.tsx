@@ -78,22 +78,7 @@ const Tables = () => {
 
     setIsSubmittingReservation(true);
 
-    // Update table status
-    const { error: tableError } = await supabase
-      .from("library_tables")
-      .update({
-        booked: true,
-        booked_by: user.id
-      })
-      .eq("id", selectedTableId);
-
-    if (tableError) {
-      toast.error("Failed to reserve table");
-      setIsSubmittingReservation(false);
-      return;
-    }
-
-    // Create reservation
+    // Create pending reservation
     const table = tables.find(t => t.id === selectedTableId);
     const { data: reservationData, error: reservationError } = await supabase
       .from("reservations")
@@ -102,7 +87,7 @@ const Tables = () => {
         type: "table",
         item_id: selectedTableId,
         item_title: `Table ${table?.table_number}`,
-        status: "active"
+        status: "pending"
       })
       .select()
       .single();
@@ -125,7 +110,7 @@ const Tables = () => {
     if (studentError) {
       toast.error("Failed to save student details");
     } else {
-      toast.success("Table reserved successfully!");
+      toast.success("Table request submitted! Waiting for admin approval.");
       setIsStudentDialogOpen(false);
       setSelectedTableId(null);
     }

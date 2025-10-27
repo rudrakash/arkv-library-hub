@@ -108,23 +108,7 @@ const Books = () => {
 
     setIsSubmittingBorrow(true);
 
-    // Update book status
-    const { error: bookError } = await supabase
-      .from("books")
-      .update({
-        available: false,
-        borrowed_by: user.id,
-        expected_return_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-      })
-      .eq("id", selectedBookId);
-
-    if (bookError) {
-      toast.error("Failed to borrow book");
-      setIsSubmittingBorrow(false);
-      return;
-    }
-
-    // Create reservation
+    // Create pending reservation
     const book = books.find(b => b.id === selectedBookId);
     const { data: reservationData, error: reservationError } = await supabase
       .from("reservations")
@@ -133,7 +117,7 @@ const Books = () => {
         type: "book",
         item_id: selectedBookId,
         item_title: book?.title || "Unknown",
-        status: "active"
+        status: "pending"
       })
       .select()
       .single();
@@ -156,7 +140,7 @@ const Books = () => {
     if (studentError) {
       toast.error("Failed to save student details");
     } else {
-      toast.success("Book borrowed successfully!");
+      toast.success("Book request submitted! Waiting for admin approval.");
       setIsStudentDialogOpen(false);
       setSelectedBookId(null);
     }

@@ -10,6 +10,7 @@ import Books from "./pages/Books";
 import Tables from "./pages/Tables";
 import Reservations from "./pages/Reservations";
 import AdminReservations from "./pages/AdminReservations";
+import AdminApprovals from "./pages/AdminApprovals";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/books" element={<Books />} />
             <Route path="/tables" element={<Tables />} />
             <Route path="/reservations" element={<Reservations />} />
+            <Route path="/admin/approvals" element={<AdminApprovals />} />
             <Route path="/admin/reservations" element={<AdminReservations />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
