@@ -24,6 +24,7 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [userTab, setUserTab] = useState<"login" | "signup">("login");
   const [adminTab, setAdminTab] = useState<"login" | "signup">("login");
+  const [showAdminCodeHint, setShowAdminCodeHint] = useState(false);
 
   const handleUserAuth = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -92,33 +93,75 @@ const Auth = () => {
     const formData = new FormData(e.currentTarget);
     const email = formData.get("admin-email") as string;
     const password = formData.get("admin-password") as string;
+    const name = formData.get("admin-name") as string;
+    const adminCode = formData.get("admin-code") as string;
 
     try {
-      const validation = loginSchema.safeParse({ email, password });
-      if (!validation.success) {
-        toast.error(validation.error.errors[0].message);
-        setLoading(false);
-        return;
-      }
+      if (adminTab === "signup") {
+        const validation = signupSchema.safeParse({ email, password, name });
+        if (!validation.success) {
+          toast.error(validation.error.errors[0].message);
+          setLoading(false);
+          return;
+        }
 
-      const { error, data } = await supabase.auth.signInWithPassword({ email, password });
-      
-      if (error) {
-        toast.error(error.message);
-      } else if (data.user) {
-        // Check if user has admin role
-        const { data: roles } = await supabase
-          .from("user_roles" as any)
-          .select("role")
-          .eq("user_id", data.user.id)
-          .eq("role", "admin")
-          .maybeSingle();
+        if (!adminCode || adminCode.trim() === "") {
+          toast.error("Admin code is required");
+          setLoading(false);
+          return;
+        }
 
-        if (roles) {
-          navigate("/");
+        const redirectUrl = `${window.location.origin}/`;
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: redirectUrl,
+            data: { 
+              name,
+              role: 'admin',
+              admin_code: adminCode
+            }
+          }
+        });
+
+        if (error) {
+          if (error.message.includes("already registered")) {
+            toast.error("Email already registered. Please login instead.");
+          } else {
+            toast.error(error.message);
+          }
         } else {
-          await supabase.auth.signOut();
-          toast.error("Access denied. Admin credentials required.");
+          toast.success("Admin account created! You can now login. (Note: If wrong admin code was used, you'll be registered as a regular user)");
+          setAdminTab("login");
+        }
+      } else {
+        const validation = loginSchema.safeParse({ email, password });
+        if (!validation.success) {
+          toast.error(validation.error.errors[0].message);
+          setLoading(false);
+          return;
+        }
+
+        const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+        
+        if (error) {
+          toast.error(error.message);
+        } else if (data.user) {
+          // Check if user has admin role
+          const { data: roles } = await supabase
+            .from("user_roles" as any)
+            .select("role")
+            .eq("user_id", data.user.id)
+            .eq("role", "admin")
+            .maybeSingle();
+
+          if (roles) {
+            navigate("/");
+          } else {
+            await supabase.auth.signOut();
+            toast.error("Access denied. Admin credentials required.");
+          }
         }
       }
     } catch (error: any) {
@@ -193,28 +236,63 @@ const Auth = () => {
           <TabsContent value="admin">
             <Card>
               <CardHeader>
-                <CardTitle>Admin Access</CardTitle>
+                <CardTitle>{adminTab === "login" ? "Admin Access" : "Create Admin Account"}</CardTitle>
                 <CardDescription>
-                  Login with your admin credentials
+                  {adminTab === "login" 
+                    ? "Login with your admin credentials" 
+                    : "Sign up as an administrator (requires admin code)"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleAdminAuth} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="admin-email">Email</Label>
-                    <Input id="admin-email" name="admin-email" type="email" placeholder="admin@arkv.com" required />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="admin-password">Password</Label>
-                    <Input id="admin-password" name="admin-password" type="password" placeholder="••••••••" required />
-                  </div>
+                <Tabs value={adminTab} onValueChange={(v) => setAdminTab(v as "login" | "signup")}>
+                  <TabsList className="grid w-full grid-cols-2 mb-4">
+                    <TabsTrigger value="login">Login</TabsTrigger>
+                    <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                  </TabsList>
 
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Admin Login
-                  </Button>
-                </form>
+                  <form onSubmit={handleAdminAuth} className="space-y-4">
+                    {adminTab === "signup" && (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="admin-name">Name</Label>
+                          <Input id="admin-name" name="admin-name" placeholder="Admin Name" required />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="admin-code">Admin Code</Label>
+                          <Input 
+                            id="admin-code" 
+                            name="admin-code" 
+                            type="password" 
+                            placeholder="Enter admin code" 
+                            required 
+                            onFocus={() => setShowAdminCodeHint(true)}
+                          />
+                          {showAdminCodeHint && (
+                            <p className="text-xs text-muted-foreground">
+                              🔒 Admin code: ARKV2024ADMIN
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    )}
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="admin-email">Email</Label>
+                      <Input id="admin-email" name="admin-email" type="email" placeholder="admin@arkv.com" required />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="admin-password">Password</Label>
+                      <Input id="admin-password" name="admin-password" type="password" placeholder="••••••••" required />
+                    </div>
+
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {adminTab === "login" ? "Admin Login" : "Create Admin Account"}
+                    </Button>
+                  </form>
+                </Tabs>
               </CardContent>
             </Card>
           </TabsContent>
