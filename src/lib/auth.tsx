@@ -50,31 +50,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      try {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          const { data: roles } = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", session.user.id)
-            .eq("role", "admin")
-            .maybeSingle();
-          
-          setIsAdmin(!!roles);
-        }
-      } catch (error) {
-        console.error("Get session error:", error);
-        setIsAdmin(false);
-      } finally {
-        setLoading(false);
-      }
-    });
+    // Safety: ensure we never hang in loading state
+    const safetyTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
 
-    return () => subscription.unsubscribe();
+    // THEN check for existing session
+    supabase.auth.getSession()
+      .then(async ({ data: { session } }) => {
+        try {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            const { data: roles } = await supabase
+              .from("user_roles")
+              .select("role")
+              .eq("user_id", session.user.id)
+              .eq("role", "admin")
+              .maybeSingle();
+            
+              setIsAdmin(!!roles);
+          }
+        } catch (error) {
+          console.error("Get session error:", error);
+          setIsAdmin(false);
+        } finally {
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error("Get session failed:", err);
+        setLoading(false);
+      });
+
+    return () => {
+      clearTimeout(safetyTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
