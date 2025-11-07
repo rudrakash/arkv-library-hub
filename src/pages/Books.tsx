@@ -37,28 +37,23 @@ const Books = () => {
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const [isSubmittingBorrow, setIsSubmittingBorrow] = useState(false);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate("/auth");
-    }
-  }, [user, loading, navigate]);
+  // Removed auth redirect to allow public browsing of books
+
 
   useEffect(() => {
-    if (user) {
-      fetchBooks();
-      
-      const channel = supabase
-        .channel('books-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'books' }, () => {
-          fetchBooks();
-        })
-        .subscribe();
+    fetchBooks();
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [user]);
+    const channel = supabase
+      .channel('books-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'books' }, () => {
+        fetchBooks();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   useEffect(() => {
     filterBooks();
@@ -99,6 +94,10 @@ const Books = () => {
   };
 
   const handleBorrowBook = (bookId: string) => {
+    if (!user) {
+      navigate("/auth");
+      return;
+    }
     setSelectedBookId(bookId);
     setIsStudentDialogOpen(true);
   };
@@ -186,7 +185,7 @@ const Books = () => {
     }
   };
 
-  if (loading || isLoadingBooks) {
+  if (isLoadingBooks) {
     return (
       <div className="min-h-screen bg-background">
         <Header />

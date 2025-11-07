@@ -30,28 +30,23 @@ const Tables = () => {
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [isSubmittingReservation, setIsSubmittingReservation] = useState(false);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate("/auth");
-    }
-  }, [user, loading, navigate]);
+  // Removed auth redirect to allow public viewing of tables
+
 
   useEffect(() => {
-    if (user) {
-      fetchTables();
-      
-      const channel = supabase
-        .channel('tables-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'library_tables' }, () => {
-          fetchTables();
-        })
-        .subscribe();
+    fetchTables();
+    
+    const channel = supabase
+      .channel('tables-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'library_tables' }, () => {
+        fetchTables();
+      })
+      .subscribe();
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [user]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const fetchTables = async () => {
     setIsLoadingTables(true);
@@ -69,6 +64,10 @@ const Tables = () => {
   };
 
   const handleReserveTable = (tableId: string) => {
+    if (!user) {
+      navigate("/auth");
+      return;
+    }
     setSelectedTableId(tableId);
     setIsStudentDialogOpen(true);
   };
@@ -154,7 +153,7 @@ const Tables = () => {
     }
   };
 
-  if (loading || isLoadingTables) {
+  if (isLoadingTables) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
