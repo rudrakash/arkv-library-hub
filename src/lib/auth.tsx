@@ -52,6 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Safety: ensure we never hang in loading state
     const safetyTimeout = setTimeout(() => {
+      console.warn("Auth loading timeout - forcing loading state to false");
       setLoading(false);
     }, 5000);
 
@@ -59,6 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     supabase.auth.getSession()
       .then(async ({ data: { session } }) => {
         try {
+          clearTimeout(safetyTimeout); // Clear timeout on successful load
           setSession(session);
           setUser(session?.user ?? null);
           
@@ -70,7 +72,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               .eq("role", "admin")
               .maybeSingle();
             
-              setIsAdmin(!!roles);
+            setIsAdmin(!!roles);
           }
         } catch (error) {
           console.error("Get session error:", error);
@@ -80,6 +82,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       })
       .catch((err) => {
+        clearTimeout(safetyTimeout); // Clear timeout on error too
         console.error("Get session failed:", err);
         setLoading(false);
       });
