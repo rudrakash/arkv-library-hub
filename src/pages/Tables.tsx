@@ -77,44 +77,57 @@ const Tables = () => {
 
     setIsSubmittingReservation(true);
 
-    // Create pending reservation
-    const table = tables.find(t => t.id === selectedTableId);
-    const { data: reservationData, error: reservationError } = await supabase
-      .from("reservations")
-      .insert({
-        user_id: user.id,
-        type: "table",
-        item_id: selectedTableId,
-        item_title: `Table ${table?.table_number}`,
-        status: "pending"
-      })
-      .select()
-      .single();
+    try {
+      // Create pending reservation
+      const table = tables.find(t => t.id === selectedTableId);
+      const { data: reservationData, error: reservationError } = await supabase
+        .from("reservations")
+        .insert({
+          user_id: user.id,
+          type: "table",
+          item_id: selectedTableId,
+          item_title: `Table ${table?.table_number}`,
+          status: "pending"
+        })
+        .select()
+        .maybeSingle();
 
-    if (reservationError || !reservationData) {
-      toast.error("Failed to create reservation");
+      if (reservationError) {
+        console.error("Reservation error:", reservationError);
+        toast.error("Failed to create reservation: " + reservationError.message);
+        setIsSubmittingReservation(false);
+        return;
+      }
+
+      if (!reservationData) {
+        toast.error("Failed to create reservation");
+        setIsSubmittingReservation(false);
+        return;
+      }
+
+      // Save student details
+      const { error: studentError } = await supabase
+        .from("student_details")
+        .insert({
+          reservation_id: reservationData.id,
+          user_id: user.id,
+          ...details
+        });
+
+      if (studentError) {
+        console.error("Student details error:", studentError);
+        toast.error("Failed to save student details: " + studentError.message);
+      } else {
+        toast.success("Table request submitted! Waiting for admin approval.");
+        setIsStudentDialogOpen(false);
+        setSelectedTableId(null);
+      }
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      toast.error("An unexpected error occurred");
+    } finally {
       setIsSubmittingReservation(false);
-      return;
     }
-
-    // Save student details
-    const { error: studentError } = await supabase
-      .from("student_details")
-      .insert({
-        reservation_id: reservationData.id,
-        user_id: user.id,
-        ...details
-      });
-
-    if (studentError) {
-      toast.error("Failed to save student details");
-    } else {
-      toast.success("Table request submitted! Waiting for admin approval.");
-      setIsStudentDialogOpen(false);
-      setSelectedTableId(null);
-    }
-
-    setIsSubmittingReservation(false);
   };
 
   const handleUpdateTableStatus = async (tableId: string, booked: boolean) => {
