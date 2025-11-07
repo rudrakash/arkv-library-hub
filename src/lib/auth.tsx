@@ -21,74 +21,73 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        try {
-          setSession(session);
-          setUser(session?.user ?? null);
-          
-          if (session?.user) {
-            // Check user role from user_roles table
-            const { data: roles } = await supabase
-              .from("user_roles")
-              .select("role")
-              .eq("user_id", session.user.id)
-              .eq("role", "admin")
-              .maybeSingle();
-            
-            setIsAdmin(!!roles);
-          } else {
-            setIsAdmin(false);
-          }
-        } catch (error) {
-          console.error("Auth state change error:", error);
-          setIsAdmin(false);
-        } finally {
-          setLoading(false);
+    let isMounted = true;
+
+    // Helper function to check admin status
+    const checkAdminStatus = async (userId: string) => {
+      try {
+        const { data: roles } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .eq("role", "admin")
+          .maybeSingle();
+        
+        if (isMounted) {
+          setIsAdmin(!!roles);
         }
+      } catch (error) {
+        console.error("Admin check error:", error);
+        if (isMounted) {
+          setIsAdmin(false);
+        }
+      }
+    };
+
+    // Set up auth state listener FIRST - NEVER use async directly
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        // Only synchronous state updates here
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        // Defer async operations with setTimeout
+        if (session?.user) {
+          setTimeout(() => {
+            checkAdminStatus(session.user.id);
+          }, 0);
+        } else {
+          setIsAdmin(false);
+        }
+        
+        setLoading(false);
       }
     );
 
-    // Safety: ensure we never hang in loading state
-    const safetyTimeout = setTimeout(() => {
-      console.warn("Auth loading timeout - forcing loading state to false");
-      setLoading(false);
-    }, 5000);
-
     // THEN check for existing session
     supabase.auth.getSession()
-      .then(async ({ data: { session } }) => {
-        try {
-          clearTimeout(safetyTimeout); // Clear timeout on successful load
+      .then(({ data: { session } }) => {
+        if (isMounted) {
           setSession(session);
           setUser(session?.user ?? null);
           
           if (session?.user) {
-            const { data: roles } = await supabase
-              .from("user_roles")
-              .select("role")
-              .eq("user_id", session.user.id)
-              .eq("role", "admin")
-              .maybeSingle();
-            
-            setIsAdmin(!!roles);
+            checkAdminStatus(session.user.id);
+          } else {
+            setIsAdmin(false);
           }
-        } catch (error) {
-          console.error("Get session error:", error);
-          setIsAdmin(false);
-        } finally {
           setLoading(false);
         }
       })
       .catch((err) => {
-        clearTimeout(safetyTimeout); // Clear timeout on error too
         console.error("Get session failed:", err);
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       });
 
     return () => {
-      clearTimeout(safetyTimeout);
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
